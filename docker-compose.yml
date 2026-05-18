@@ -17,7 +17,7 @@ services:
       - "7878:7878"        # Web UI — http://localhost:7878
 
     env_file:
-      - .env               # Edit .env before first run
+      - ../.env               # Keys live in parent folder, never in the project
 
     volumes:
       # Persist the ignore list database across container restarts
