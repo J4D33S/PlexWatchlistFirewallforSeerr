@@ -1,0 +1,8 @@
+# Don't bake secrets or junk into the image
+.env
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.gitignore
+*.zip

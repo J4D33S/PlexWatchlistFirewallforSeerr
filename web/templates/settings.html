@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Settings — Media Firewall{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Settings</h1>
+  <h2>Changes take effect immediately — no restart needed.</h2>
+</div>
+
+{% if saved %}
+<div class="alert alert-success">✅ Settings saved successfully.</div>
+{% endif %}
+
+<form action="/settings" method="post">
+
+  <div class="card">
+    <div class="card-title">🛡 Safety</div>
+    <div class="form-group">
+      <label>Dry Run Mode</label>
+      <div class="toggle-wrap">
+        <label class="toggle">
+          <input type="checkbox" id="dry-cb"
+            {% if env.get('DRY_RUN','true') in ('true','1','yes') %}checked{% endif %}>
+          <span class="slider"></span>
+        </label>
+        <input type="hidden" name="DRY_RUN" id="dry-val" value="{{ env.get('DRY_RUN','true') }}">
+        <span id="dry-label">
+          {% if env.get('DRY_RUN','true') in ('true','1','yes') %}
+            <strong style="color:var(--green)">ON</strong> — nothing will be sent to Seerr
+          {% else %}
+            <strong style="color:var(--red)">OFF</strong> — ALLOW items will be forwarded to Seerr
+          {% endif %}
+        </span>
+      </div>
+      <p class="hint">Always confirm decisions look correct in dry-run before enabling live mode.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🎬 Seerr Connection</div>
+    <div class="alert alert-info" style="margin-bottom:20px;font-size:13px;">
+      ⚠️ <strong>Docker networking:</strong> Do NOT use <code>localhost</code> — use your machine's LAN IP
+      or domain name. Find your IP with <code>ipconfig</code> (Windows) or <code>hostname -I</code> (Linux).
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Seerr URL</label>
+        <input type="text" name="SEERR_URL"
+               value="{{ env.get('SEERR_URL', '') }}"
+               placeholder="https://seerr.yourdomain.com">
+        <p class="hint">Full URL — no trailing slash.</p>
+      </div>
+      <div class="form-group">
+        <label>API Key</label>
+        <input type="password" name="SEERR_API_KEY"
+               value="{{ env.get('SEERR_API_KEY', '') }}"
+               placeholder="Seerr → Settings → General → API Key">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📺 Plex Connection <span style="font-size:12px;color:var(--muted);font-weight:400;margin-left:8px;">Used to confirm items are actually in your library</span></div>
+    <div class="alert alert-info" style="margin-bottom:20px;font-size:13px;">
+      ℹ️ Items marked available in Seerr but <strong>not yet in Plex</strong> (e.g. on seedbox, not transferred)
+      will still be <strong>ALLOW</strong>ed. Only items confirmed in <em>both</em> Seerr and Plex are skipped.
+      Leave blank to disable Plex library checking.
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Plex URL</label>
+        <input type="text" name="PLEX_URL"
+               value="{{ env.get('PLEX_URL', '') }}"
+               placeholder="http://192.168.1.100:32400">
+        <p class="hint">Your Plex server address — LAN IP or domain.</p>
+      </div>
+      <div class="form-group">
+        <label>Plex Token</label>
+        <input type="password" name="PLEX_TOKEN"
+               value="{{ env.get('PLEX_TOKEN', '') }}"
+               placeholder="Your X-Plex-Token">
+        <p class="hint">
+          Find yours:
+          <a href="https://support.plex.tv/articles/204059436" target="_blank" style="color:var(--accent)">
+            support.plex.tv → Finding your token
+          </a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📺 TVDB Integration <span style="font-size:12px;color:var(--muted);font-weight:400;margin-left:8px;">Used for TV show & anime posters</span></div>
+    <div class="alert alert-info" style="margin-bottom:16px;font-size:13px;">
+      ℹ️ TVDB is used for TV show and anime posters. TMDB is used for movies.
+      Get a free key at <a href="https://thetvdb.com/api-information" target="_blank" style="color:var(--accent)">thetvdb.com/api-information</a>.
+      Leave blank to use TMDB for all poster types.
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>TVDB API Key</label>
+        <input type="password" name="TVDB_API_KEY"
+               value="{{ env.get('TVDB_API_KEY', '') }}"
+               placeholder="Your TVDB API key">
+      </div>
+      <div class="form-group">
+        <label>TVDB User PIN</label>
+        <input type="password" name="TVDB_PIN"
+               value="{{ env.get('TVDB_PIN', '') }}"
+               placeholder="Your unique user key / PIN">
+        <p class="hint">Both API key and PIN are required for TVDB authentication.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🎬 TMDB Integration <span style="font-size:12px;color:var(--muted);font-weight:400;margin-left:8px;">Used for movie posters & anime detection</span></div>
+    <div class="form-group" style="max-width:600px">
+      <label>TMDB API Read Access Token</label>
+      <input type="password" name="TMDB_API_KEY"
+             value="{{ env.get('TMDB_API_KEY', '') }}"
+             placeholder="eyJhbGciOiJSUzI1NiJ9...">
+      <p class="hint">
+        Get a free key at
+        <a href="https://www.themoviedb.org/settings/api" target="_blank" style="color:var(--accent)">
+          themoviedb.org/settings/api
+        </a>
+        — use the "API Read Access Token" (the long one).
+      </p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🗄 Cache Management</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+      Poster images are cached locally for 30 days. Clear the cache to force
+      fresh poster fetches on the next run. Your block list and run history are unaffected.
+    </p>
+    {% if request.query_params.get('cleared') %}
+    <div class="alert alert-success" style="margin-bottom:16px;">
+      ✅ Poster cache cleared — {{ request.query_params.get('cleared') }} entries removed.
+      Posters will be re-fetched on the next run.
+    </div>
+    {% endif %}
+    <form action="/settings/clear-poster-cache" method="post"
+          onsubmit="return confirm('Clear all cached poster images?')">
+      <button type="submit" class="btn" style="background:var(--red);color:#fff;padding:8px 18px;">
+        🗑 Clear Poster Cache
+      </button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 Logging</div>
+    <div class="form-group" style="max-width:220px">
+      <label>Log Level</label>
+      <select name="LOG_LEVEL">
+        {% for level in ['DEBUG','INFO','WARNING','ERROR'] %}
+        <option value="{{ level }}" {% if env.get('LOG_LEVEL','INFO') == level %}selected{% endif %}>{{ level }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-primary">💾 Save Settings</button>
+</form>
+
+<script>
+  const cb  = document.getElementById('dry-cb');
+  const val = document.getElementById('dry-val');
+  const lbl = document.getElementById('dry-label');
+  cb.addEventListener('change', () => {
+    val.value = cb.checked ? 'true' : 'false';
+    lbl.innerHTML = cb.checked
+      ? '<strong style="color:var(--green)">ON</strong> — nothing will be sent to Seerr'
+      : '<strong style="color:var(--red)">OFF</strong> — ALLOW items will be forwarded to Seerr';
+  });
+</script>
+{% endblock %}

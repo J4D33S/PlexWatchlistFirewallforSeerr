@@ -1,0 +1,557 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Media Firewall{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+  <div>
+    <h1>Dashboard</h1>
+    <h2>
+      {% if last_run.ran_at %}
+        Last run: {{ last_run.ran_at }}
+        {% if last_run.dry_run %}&nbsp;<span class="badge badge-dry">DRY RUN</span>{% endif %}
+      {% else %}
+        No runs yet — click Run Firewall to start.
+      {% endif %}
+    </h2>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <form action="/run" method="post">
+      <button class="btn btn-run" type="submit">▶ Run Firewall</button>
+    </form>
+    {% if last_run.ran_at and last_run.summary.ALLOW > 0 %}
+    <form action="/forward/all" method="post"
+          onsubmit="return confirm('Forward all {{ last_run.summary.ALLOW }} ALLOW items to Seerr now?\n\nThis bypasses DRY RUN and sends real requests.')">
+      <button class="btn" type="submit"
+              style="background:linear-gradient(135deg,#16532a,#22c55e);color:#fff;font-size:15px;padding:10px 24px;">
+        ⬆ Forward All ({{ last_run.summary.ALLOW }})
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if dry_run %}
+<div class="alert alert-info">
+  ⚠️ <strong>DRY RUN is ON.</strong> No requests will be sent to Seerr.
+  Change in <a href="/settings" style="color:inherit">Settings</a>.
+</div>
+{% endif %}
+
+{% if last_run.error %}
+<div class="alert alert-error">
+  ❌ <strong>Error during last run:</strong> {{ last_run.error }}<br>
+  <small>Check your Seerr URL and API key in <a href="/settings" style="color:inherit">Settings</a>.</small>
+</div>
+{% endif %}
+
+{% if request.query_params.get('forwarded') %}
+<div class="alert alert-success">
+  ✅ Forwarded {{ request.query_params.get('forwarded') }} item(s) to Seerr successfully.
+  {% if request.query_params.get('failed') != '0' %}
+  ({{ request.query_params.get('failed') }} failed)
+  {% endif %}
+</div>
+{% endif %}
+
+{% if request.query_params.get('forwarded_one') %}
+<div class="alert alert-success">
+  ✅ <strong>{{ request.query_params.get('forwarded_one') }}</strong> forwarded to Seerr.
+</div>
+{% endif %}
+
+{% if request.query_params.get('forward_error') %}
+<div class="alert alert-error">
+  ❌ Failed to forward <strong>{{ request.query_params.get('forward_error') }}</strong> to Seerr.
+</div>
+{% endif %}
+
+{% if last_run.ran_at and not last_run.error %}
+
+{% if last_run.users %}
+<div class="card" style="padding:14px 24px;margin-bottom:16px;">
+  <span style="font-size:13px;color:var(--muted);margin-right:8px;">Users:</span>
+  <button class="user-btn active" data-user="ALL">All Users</button>
+  {% for u in last_run.users %}
+    <button class="user-btn" data-user="{{ u | lower }}">{{ u }}</button>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="stats">
+  <div class="stat allow"><div class="stat-num">{{ last_run.summary.ALLOW }}</div><div class="stat-label">Allowed</div></div>
+  <div class="stat block"><div class="stat-num">{{ last_run.summary.BLOCK }}</div><div class="stat-label">Blocked</div></div>
+  <div class="stat skip"><div class="stat-num">{{ last_run.summary.SKIP }}</div><div class="stat-label">Skipped</div></div>
+  <div class="stat"><div class="stat-num">{{ last_run.summary.TOTAL }}</div><div class="stat-label">Total</div></div>
+</div>
+
+<div class="card">
+  <!-- Toolbar row 1: status filters + view toggle -->
+  <div class="toolbar-row">
+    <span class="toolbar-label">Status</span>
+    <div class="btn-group">
+      <button class="filter-btn active" data-filter="status" data-val="ALL">All</button>
+      <button class="filter-btn" data-filter="status" data-val="ALLOW">Allowed</button>
+      <button class="filter-btn" data-filter="status" data-val="PENDING">Pending</button>
+      <button class="filter-btn" data-filter="status" data-val="PARTIAL">Partial</button>
+      <button class="filter-btn" data-filter="status" data-val="SKIP">Skipped</button>
+      <button class="filter-btn" data-filter="status" data-val="BLOCK">Blocked</button>
+    </div>
+    <!-- View toggle -->
+    <div style="margin-left:auto;display:flex;gap:4px;">
+      <button id="view-table" class="view-btn active" title="Table view">☰ Table</button>
+      <button id="view-grid"  class="view-btn"        title="Grid view">⊞ Grid</button>
+    </div>
+  </div>
+
+  <!-- Toolbar row 2: type + sort + search -->
+  <div class="toolbar-row">
+    <span class="toolbar-label">Type</span>
+    <div class="btn-group">
+      <button class="filter-btn active" data-filter="type" data-val="ALL">All</button>
+      <button class="filter-btn" data-filter="type" data-val="movie">Movies</button>
+      <button class="filter-btn" data-filter="type" data-val="tv">TV Shows</button>
+      <button class="filter-btn" data-filter="type" data-val="anime">Anime</button>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <select id="sort-select">
+        <option value="request-newest">Request: Newest First</option>
+        <option value="request-oldest">Request: Oldest First</option>
+        <option value="title-asc">Title A→Z</option>
+        <option value="title-desc">Title Z→A</option>
+        <option value="status">By Status</option>
+        <option value="type">By Type</option>
+      </select>
+      <input type="text" id="table-search" placeholder="Search titles…">
+    </div>
+  </div>
+
+  <div id="no-results" style="display:none;margin-top:20px;" class="empty">
+    <div class="empty-icon">🔍</div><p>No results match your filters.</p>
+  </div>
+
+  {% if last_run.decisions %}
+
+  <!-- ── TABLE VIEW ─────────────────────────────────────────────────── -->
+  <div id="table-view">
+    <table id="decisions-table">
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Poster</th>
+          <th>Title</th>
+          <th>Type</th>
+          <th>Requested By</th>
+          <th>Seerr Status</th>
+          <th>Requested At</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="decisions-body">
+        {% for d in last_run.decisions %}
+        <tr data-status="{{ d.status }}"
+            data-type="{{ d.item.type }}"
+            data-title="{{ d.item.title | lower }}"
+            data-user="{{ d.item.added_by | lower }}"
+            data-reqat="{{ d.item.seerr_req_at }}"
+            data-reqstatus="{{ d.item.req_status }}"
+            data-mediastatus="{{ d.item.media_status }}">
+          <td><span class="badge badge-{{ d.status | lower }}">{{ d.status }}</span></td>
+          <td style="width:40px;padding:6px;">
+            {% if d.item.poster_url %}
+              <img src="{{ d.item.poster_url }}" alt="" style="width:36px;height:54px;object-fit:cover;border-radius:4px;display:block;">
+            {% else %}
+              <div style="width:36px;height:54px;background:var(--surface2);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:16px;">🎬</div>
+            {% endif %}
+          </td>
+          <td><strong>{{ d.item.title }}</strong></td>
+          <td style="color:var(--muted)">{{ d.item.type }}</td>
+          <td style="color:var(--muted);font-size:13px">{{ d.item.added_by }}</td>
+          <td style="font-size:13px">
+            {% if d.item.req_status == 'pending' %}
+              <span class="badge" style="background:#5a3a00;color:#f59e0b">⏳ pending</span>
+            {% elif d.item.req_status == 'approved' %}
+              <span class="badge" style="background:#1e3a5f;color:#60a5fa">✓ approved</span>
+            {% elif d.item.req_status == 'declined' %}
+              <span class="badge" style="background:#5a1c1c;color:#ef4444">✗ declined</span>
+            {% elif d.item.media_status == 'partial' %}
+              <span class="badge" style="background:#3b1f5e;color:#c084fc">◑ partial</span>
+            {% elif d.item.media_status == 'available' %}
+              <span class="badge" style="background:#16532a;color:#22c55e">✓ available</span>
+            {% elif d.item.media_status == 'processing' %}
+              <span class="badge" style="background:#1e3a5f;color:#60a5fa">⟳ processing</span>
+            {% else %}
+              <span style="color:var(--muted)">—</span>
+            {% endif %}
+          </td>
+          <td class="ts-cell-req" data-ts="{{ d.item.seerr_req_at }}" style="color:var(--muted);font-size:12px">—</td>
+          <td style="white-space:nowrap">
+            {% if d.status == 'ALLOW' %}
+            <form action="/forward/one" method="post" style="display:inline;"
+                  onsubmit="return confirm('Forward {{ d.item.title | replace("'","&#39;") }} to Seerr now?')">
+              <input type="hidden" name="tmdb_id"    value="{{ d.item.tmdb_id }}">
+              <input type="hidden" name="media_type" value="{{ d.item.type }}">
+              <input type="hidden" name="title"      value="{{ d.item.title }}">
+              <button type="submit" class="btn" style="padding:3px 10px;font-size:11px;background:#16532a;color:#22c55e;margin-right:4px;white-space:nowrap">⬆ Send</button>
+            </form>
+            {% endif %}
+            <form action="/ignore/add-tmdb" method="post" style="display:inline;"
+                  onsubmit="return confirm('Block {{ d.item.title | replace("'","&#39;") }} from future requests?')">
+              <input type="hidden" name="tmdb_id"    value="{{ d.item.tmdb_id }}">
+              <input type="hidden" name="title"      value="{{ d.item.title }}">
+              <input type="hidden" name="reason"     value="Blocked from dashboard">
+              <input type="hidden" name="poster_url" value="{{ d.item.poster_url }}">
+              <button type="submit" class="btn btn-danger" style="padding:3px 10px;font-size:11px;white-space:nowrap">🚫 Block</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── GRID VIEW ──────────────────────────────────────────────────── -->
+  <div id="grid-view" style="display:none;">
+    <div id="grid-container" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;margin-top:16px;">
+      {% for d in last_run.decisions %}
+      <div class="grid-card"
+           data-status="{{ d.status }}"
+           data-type="{{ d.item.type }}"
+           data-title="{{ d.item.title | lower }}"
+           data-user="{{ d.item.added_by | lower }}"
+           data-reqat="{{ d.item.seerr_req_at }}"
+           data-reqstatus="{{ d.item.req_status }}"
+           data-mediastatus="{{ d.item.media_status }}">
+        <!-- Poster -->
+        <div style="position:relative;">
+          {% if d.item.poster_url %}
+            <img src="{{ d.item.poster_url }}" alt="{{ d.item.title }}"
+                 style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:8px 8px 0 0;display:block;">
+          {% else %}
+            <div style="width:100%;aspect-ratio:2/3;background:var(--surface2);border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-size:40px;">🎬</div>
+          {% endif %}
+          <!-- Status badge overlay -->
+          <span class="badge badge-{{ d.status | lower }}"
+                style="position:absolute;top:6px;left:6px;font-size:10px;">{{ d.status }}</span>
+          <!-- Type badge -->
+          <span style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;">
+            {{ d.item.type }}
+          </span>
+          <!-- Partial badge -->
+          {% if d.item.media_status == 'partial' %}
+          <span style="position:absolute;bottom:6px;left:6px;background:rgba(59,31,94,.9);color:#c084fc;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;">
+            ◑ PARTIAL
+          </span>
+          {% endif %}
+          <!-- Pending badge -->
+          {% if d.item.req_status == 'pending' %}
+          <span style="position:absolute;bottom:6px;right:6px;background:rgba(90,58,0,.9);color:#f59e0b;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;">
+            ⏳ PENDING
+          </span>
+          {% endif %}
+        </div>
+        <!-- Info -->
+        <div style="padding:8px;background:var(--surface2);border-radius:0 0 8px 8px;">
+          <div style="font-size:12px;font-weight:600;line-height:1.3;margin-bottom:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">
+            {{ d.item.title }}
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">{{ d.item.added_by }}</div>
+          <!-- Seerr status -->
+          {% if d.item.req_status == 'pending' %}
+            <span class="badge" style="background:#5a3a00;color:#f59e0b;font-size:10px">⏳ pending</span>
+          {% elif d.item.req_status == 'approved' %}
+            <span class="badge" style="background:#1e3a5f;color:#60a5fa;font-size:10px">✓ approved</span>
+          {% elif d.item.media_status == 'partial' %}
+            <span class="badge" style="background:#3b1f5e;color:#c084fc;font-size:10px">◑ partial</span>
+          {% elif d.item.media_status == 'available' %}
+            <span class="badge" style="background:#16532a;color:#22c55e;font-size:10px">✓ available</span>
+          {% endif %}
+          <!-- Block button -->
+          <form action="/ignore/add-tmdb" method="post" style="margin-top:6px;"
+                onsubmit="return confirm('Block {{ d.item.title | replace("'","&#39;") }}?')">
+            <input type="hidden" name="tmdb_id"    value="{{ d.item.tmdb_id }}">
+            <input type="hidden" name="title"      value="{{ d.item.title }}">
+            <input type="hidden" name="reason"     value="Blocked from dashboard">
+            <input type="hidden" name="poster_url" value="{{ d.item.poster_url }}">
+            <button type="submit" class="btn btn-danger" style="width:100%;padding:4px;font-size:11px;">🚫 Block</button>
+          </form>
+          {% if d.status == 'ALLOW' %}
+          <form action="/forward/one" method="post" style="margin-top:4px;"
+                onsubmit="return confirm('Forward {{ d.item.title | replace("'","&#39;") }} to Seerr now?')">
+            <input type="hidden" name="tmdb_id"    value="{{ d.item.tmdb_id }}">
+            <input type="hidden" name="media_type" value="{{ d.item.type }}">
+            <input type="hidden" name="title"      value="{{ d.item.title }}">
+            <button type="submit" style="width:100%;padding:4px;font-size:11px;font-weight:700;background:#16532a;color:#22c55e;border:none;border-radius:6px;cursor:pointer;">⬆ Send to Seerr</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div id="row-count" style="font-size:12px;color:var(--muted);margin-top:12px;text-align:right;"></div>
+
+  {% else %}
+  <div class="empty" style="margin-top:16px;"><div class="empty-icon">📭</div>No watchlist items found across all users.</div>
+  {% endif %}
+</div>
+
+{% else %}
+<div class="card">
+  <div class="empty">
+    <div class="empty-icon">🚀</div>
+    <p style="margin-bottom:16px">Click <strong>Run Firewall</strong> to pull watchlists from all your Seerr users.</p>
+    <p style="font-size:13px">Set your Seerr URL and API key in <a href="/settings">Settings</a> first.</p>
+  </div>
+</div>
+{% endif %}
+
+<style>
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.toolbar-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  min-width: 48px;
+}
+.btn-group { display: flex; gap: 4px; flex-wrap: wrap; }
+.filter-btn {
+  padding: 5px 13px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--muted);
+  transition: all .15s;
+  white-space: nowrap;
+}
+.filter-btn:hover  { color: var(--text); border-color: var(--accent); }
+.filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.view-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--muted);
+  transition: all .15s;
+}
+.view-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.user-btn {
+  display: inline-block;
+  padding: 3px 14px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid #2a4a7a;
+  background: #1a3a5c;
+  color: #60a5fa;
+  margin-right: 4px;
+  margin-bottom: 4px;
+  transition: all .15s;
+}
+.user-btn:hover  { background: #22507a; }
+.user-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+#sort-select, #table-search {
+  padding: 5px 10px;
+  font-size: 13px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+}
+#table-search { width: 180px; background: var(--bg); }
+#sort-select:focus, #table-search:focus { outline: none; border-color: var(--accent); }
+
+.grid-card {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  transition: transform .15s, border-color .15s;
+}
+.grid-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+</style>
+
+<script>
+(function() {
+  let activeStatus = 'ALL';
+  let activeType   = 'ALL';
+  let activeUser   = 'ALL';
+  let searchTerm   = '';
+  let sortMode     = 'request-newest';
+  let currentView  = localStorage.getItem('dashView') || 'table';
+
+  const noResults = document.getElementById('no-results');
+  const rowCount  = document.getElementById('row-count');
+
+  // ── Timestamp helpers ───────────────────────────────────────────────
+  function parseTs(val) {
+    if (!val || val === 'None' || val === '') return 0;
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return Math.floor(d.getTime() / 1000);
+    const n = Number(val);
+    return (!isNaN(n) && n > 1000000) ? n : 0;
+  }
+  function formatTs(val) {
+    const ts = parseTs(val);
+    if (!ts) return '—';
+    const d = new Date(ts * 1000);
+    return d.toLocaleDateString(undefined, {month:'short',day:'numeric',year:'numeric'})
+      + ' ' + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  }
+
+  // Format timestamps in table
+  document.querySelectorAll('.ts-cell-req').forEach(c => {
+    c.textContent = formatTs(c.dataset.ts);
+    c.dataset.parsed = parseTs(c.dataset.ts);
+  });
+
+  // Store parsed ts on rows
+  document.querySelectorAll('#decisions-body tr').forEach(row => {
+    const req = row.querySelector('.ts-cell-req');
+    row.dataset.reqParsed = req ? req.dataset.parsed : '0';
+  });
+
+  // ── View toggle ─────────────────────────────────────────────────────
+  function setView(v) {
+    currentView = v;
+    localStorage.setItem('dashView', v);
+    document.getElementById('table-view').style.display = v === 'table' ? '' : 'none';
+    document.getElementById('grid-view').style.display  = v === 'grid'  ? '' : 'none';
+    document.getElementById('view-table').classList.toggle('active', v === 'table');
+    document.getElementById('view-grid').classList.toggle('active',  v === 'grid');
+    apply();
+  }
+
+  document.getElementById('view-table').addEventListener('click', () => setView('table'));
+  document.getElementById('view-grid').addEventListener('click',  () => setView('grid'));
+
+  // ── Filter + sort ───────────────────────────────────────────────────
+  function matchesFilters(el) {
+    const rs = el.dataset.reqstatus   || '';
+    const ms = el.dataset.mediastatus || '';
+    const statusOk =
+      activeStatus === 'ALL'
+      || el.dataset.status === activeStatus
+      || (activeStatus === 'PENDING' && rs === 'pending')
+      || (activeStatus === 'PARTIAL' && ms === 'partial');
+    const typeOk   = activeType  === 'ALL' || el.dataset.type  === activeType;
+    const userOk   = activeUser  === 'ALL' || el.dataset.user  === activeUser;
+    const searchOk = !searchTerm || el.dataset.title.includes(searchTerm);
+    return statusOk && typeOk && userOk && searchOk;
+  }
+
+  function sortItems(items) {
+    return items.sort((a, b) => {
+      switch (sortMode) {
+        case 'request-newest': return Number(b.dataset.reqParsed || b.dataset.reqat && parseTs(b.dataset.reqat) || 0)
+                                    - Number(a.dataset.reqParsed || a.dataset.reqat && parseTs(a.dataset.reqat) || 0);
+        case 'request-oldest': return Number(a.dataset.reqParsed || 0) - Number(b.dataset.reqParsed || 0);
+        case 'title-asc':      return a.dataset.title.localeCompare(b.dataset.title);
+        case 'title-desc':     return b.dataset.title.localeCompare(a.dataset.title);
+        case 'status':         return a.dataset.status.localeCompare(b.dataset.status);
+        case 'type':           return a.dataset.type.localeCompare(b.dataset.type);
+      }
+      return 0;
+    });
+  }
+
+  function apply() {
+    let visibleCount = 0;
+
+    if (currentView === 'table') {
+      const tbody = document.getElementById('decisions-body');
+      if (!tbody) return;
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      rows.forEach(r => r.style.display = matchesFilters(r) ? '' : 'none');
+      const visible = rows.filter(r => r.style.display !== 'none');
+      sortItems(visible).forEach(r => tbody.appendChild(r));
+      visibleCount = visible.length;
+      if (noResults) noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+      if (rowCount)  rowCount.textContent = `Showing ${visibleCount} of ${rows.length} items`;
+    } else {
+      const container = document.getElementById('grid-container');
+      if (!container) return;
+      const cards = Array.from(container.querySelectorAll('.grid-card'));
+      cards.forEach(c => c.style.display = matchesFilters(c) ? '' : 'none');
+      const visible = cards.filter(c => c.style.display !== 'none');
+      // For grid, add reqParsed data attr if missing
+      visible.forEach(c => {
+        if (!c.dataset.reqParsed) {
+          c.dataset.reqParsed = String(parseTs(c.dataset.reqat || ''));
+        }
+      });
+      sortItems(visible).forEach(c => container.appendChild(c));
+      visibleCount = visible.length;
+      if (noResults) noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+      if (rowCount)  rowCount.textContent = `Showing ${visibleCount} of ${cards.length} items`;
+    }
+  }
+
+  // ── Event listeners ─────────────────────────────────────────────────
+  document.querySelectorAll('.filter-btn[data-filter="status"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn[data-filter="status"]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeStatus = btn.dataset.val;
+      apply();
+    });
+  });
+
+  document.querySelectorAll('.filter-btn[data-filter="type"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn[data-filter="type"]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeType = btn.dataset.val;
+      apply();
+    });
+  });
+
+  document.querySelectorAll('.user-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const isActive = btn.classList.contains('active') && btn.dataset.user !== 'ALL';
+      document.querySelectorAll('.user-btn').forEach(b => b.classList.remove('active'));
+      if (isActive) {
+        document.querySelector('.user-btn[data-user="ALL"]').classList.add('active');
+        activeUser = 'ALL';
+      } else {
+        btn.classList.add('active');
+        activeUser = btn.dataset.user;
+      }
+      apply();
+    });
+  });
+
+  document.getElementById('sort-select').addEventListener('change', e => {
+    sortMode = e.target.value;
+    apply();
+  });
+
+  document.getElementById('table-search').addEventListener('input', e => {
+    searchTerm = e.target.value.toLowerCase().trim();
+    apply();
+  });
+
+  // Init
+  document.getElementById('sort-select').value = sortMode;
+  setView(currentView);
+})();
+</script>
+
+{% endblock %}
