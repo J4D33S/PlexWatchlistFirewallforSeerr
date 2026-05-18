@@ -12,6 +12,9 @@
       {% else %}
         No runs yet — click Run Firewall to start.
       {% endif %}
+      {% if schedule_interval > 0 %}
+        &nbsp;<span class="badge" style="background:#1a3a2a;color:#22c55e;font-size:11px;">⏱ Auto every {{ schedule_interval }}h</span>
+      {% endif %}
     </h2>
   </div>
   <div style="display:flex;gap:10px;flex-wrap:wrap;">

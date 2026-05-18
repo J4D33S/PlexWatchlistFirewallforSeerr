@@ -74,5 +74,13 @@ class Settings:
     def log_level(self) -> str:
         return self._get("LOG_LEVEL", "INFO").upper()
 
+    @property
+    def schedule_interval(self) -> int:
+        """Auto-run interval in hours. 0 = disabled."""
+        try:
+            return int(self._get("SCHEDULE_INTERVAL", "0"))
+        except ValueError:
+            return 0
+
 
 settings = Settings()

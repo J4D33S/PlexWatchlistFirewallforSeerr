@@ -151,6 +151,27 @@
   </div>
 
   <div class="card">
+    <div class="card-title">⏱ Auto-Run Schedule</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+      Automatically run the firewall on a recurring schedule. Set to 0 to disable.
+    </p>
+    <div class="form-group" style="max-width:300px;">
+      <label>Run every (hours)</label>
+      <select name="SCHEDULE_INTERVAL">
+        {% set interval = env.get('SCHEDULE_INTERVAL', '0') %}
+        <option value="0"  {% if interval == '0'  %}selected{% endif %}>Disabled (manual only)</option>
+        <option value="1"  {% if interval == '1'  %}selected{% endif %}>Every 1 hour</option>
+        <option value="2"  {% if interval == '2'  %}selected{% endif %}>Every 2 hours</option>
+        <option value="4"  {% if interval == '4'  %}selected{% endif %}>Every 4 hours</option>
+        <option value="6"  {% if interval == '6'  %}selected{% endif %}>Every 6 hours</option>
+        <option value="12" {% if interval == '12' %}selected{% endif %}>Every 12 hours</option>
+        <option value="24" {% if interval == '24' %}selected{% endif %}>Every 24 hours</option>
+      </select>
+      <p class="hint">The firewall will run automatically in the background. Results appear on the dashboard.</p>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-title">📋 Logging</div>
     <div class="form-group" style="max-width:220px">
       <label>Log Level</label>

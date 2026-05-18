@@ -27,6 +27,40 @@ app.mount("/static", StaticFiles(directory=str(_HERE / "static")), name="static"
 
 _last_run: dict = load_last_run()
 
+# ── Scheduler ─────────────────────────────────────────────────────────────────
+
+import asyncio
+
+_scheduler_task: asyncio.Task | None = None
+
+
+async def _scheduler_loop() -> None:
+    """Background task that auto-runs the firewall on a schedule."""
+    import logging
+    log = logging.getLogger("scheduler")
+    while True:
+        interval = settings.schedule_interval
+        if interval <= 0:
+            await asyncio.sleep(60)  # check every minute if schedule gets enabled
+            continue
+        log.info("Scheduler: next run in %d hour(s)", interval)
+        await asyncio.sleep(interval * 3600)
+        log.info("Scheduler: running firewall automatically")
+        global _last_run
+        try:
+            _last_run = _trigger_run()
+        except Exception as exc:
+            _last_run["error"] = str(exc)
+            _last_run["ran_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        save_last_run(_last_run)
+        log.info("Scheduler: run complete")
+
+
+@app.on_event("startup")
+async def startup():
+    global _scheduler_task
+    _scheduler_task = asyncio.create_task(_scheduler_loop())
+
 
 # ── Env helpers ───────────────────────────────────────────────────────────────
 
@@ -110,7 +144,11 @@ def _trigger_run() -> dict:
 async def dashboard(request: Request):
     return templates.TemplateResponse(
         request=request, name="dashboard.html",
-        context={"last_run": _last_run, "dry_run": settings.dry_run},
+        context={
+            "last_run":         _last_run,
+            "dry_run":          settings.dry_run,
+            "schedule_interval": settings.schedule_interval,
+        },
     )
 
 
@@ -124,28 +162,30 @@ async def settings_page(request: Request):
 
 @app.post("/settings", response_class=HTMLResponse)
 async def settings_save(
-    request:       Request,
-    DRY_RUN:       str = Form("true"),
-    SEERR_URL:     str = Form(""),
-    SEERR_API_KEY: str = Form(""),
-    PLEX_URL:      str = Form(""),
-    PLEX_TOKEN:    str = Form(""),
-    TVDB_API_KEY:  str = Form(""),
-    TVDB_PIN:      str = Form(""),
-    TMDB_API_KEY:  str = Form(""),
-    LOG_LEVEL:     str = Form("INFO"),
+    request:           Request,
+    DRY_RUN:           str = Form("true"),
+    SEERR_URL:         str = Form(""),
+    SEERR_API_KEY:     str = Form(""),
+    PLEX_URL:          str = Form(""),
+    PLEX_TOKEN:        str = Form(""),
+    TVDB_API_KEY:      str = Form(""),
+    TVDB_PIN:          str = Form(""),
+    TMDB_API_KEY:      str = Form(""),
+    SCHEDULE_INTERVAL: str = Form("0"),
+    LOG_LEVEL:         str = Form("INFO"),
 ):
     env = _read_env()
     env.update({
-        "DRY_RUN":       DRY_RUN,
-        "SEERR_URL":     SEERR_URL.strip(),
-        "SEERR_API_KEY": SEERR_API_KEY.strip(),
-        "PLEX_URL":      PLEX_URL.strip(),
-        "PLEX_TOKEN":    PLEX_TOKEN.strip(),
-        "TVDB_API_KEY":  TVDB_API_KEY.strip(),
-        "TVDB_PIN":      TVDB_PIN.strip(),
-        "TMDB_API_KEY":  TMDB_API_KEY.strip(),
-        "LOG_LEVEL":     LOG_LEVEL,
+        "DRY_RUN":           DRY_RUN,
+        "SEERR_URL":         SEERR_URL.strip(),
+        "SEERR_API_KEY":     SEERR_API_KEY.strip(),
+        "PLEX_URL":          PLEX_URL.strip(),
+        "PLEX_TOKEN":        PLEX_TOKEN.strip(),
+        "TVDB_API_KEY":      TVDB_API_KEY.strip(),
+        "TVDB_PIN":          TVDB_PIN.strip(),
+        "TMDB_API_KEY":      TMDB_API_KEY.strip(),
+        "SCHEDULE_INTERVAL": SCHEDULE_INTERVAL.strip(),
+        "LOG_LEVEL":         LOG_LEVEL,
     })
     _write_env(env)
     return templates.TemplateResponse(
