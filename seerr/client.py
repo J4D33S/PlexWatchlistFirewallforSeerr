@@ -193,9 +193,10 @@ class SeerrClient:
         force=True bypasses dry_run — used for manual per-item forwards.
         """
         payload: dict[str, Any] = {
-            "mediaType": "tv" if media_type == "anime" else media_type,
+            "mediaType": "tv" if media_type in ("tv", "anime") else "movie",
             "mediaId":   tmdb_id,
         }
-        if media_type in ("tv", "anime") and seasons:
-            payload["seasons"] = seasons
+        # TV requests require a seasons field — default to all seasons
+        if media_type in ("tv", "anime"):
+            payload["seasons"] = seasons if seasons else "all"
         return self._post("/request", payload, force=force)
