@@ -19,20 +19,27 @@ Plex Watchlists ──► Firewall Engine ──► Seerr API ──► Radarr /
 
 ### Setup
 
+**Linux:**
 ```bash
-# 1. Clone the repo
-git clone https://github.com/yourusername/media-request-firewall.git
-cd media-request-firewall
-
-# 2. Create your .env file
+git clone https://github.com/J4D33S/PlexWatchlistFirewallforSeerr.git media-firewall
+cd media-firewall
 cp .env.example .env
-# Edit .env with your Seerr URL, API key, and other settings
-
-# 3. Start the container
+nano .env   # fill in your values
 docker compose up -d
+```
 
-# 4. Open the web UI
-# http://localhost:7878
+**Windows:**
+```powershell
+# Clone into a parent folder e.g. DockerTest
+git clone https://github.com/J4D33S/PlexWatchlistFirewallforSeerr.git media-firewall
+
+# Create your .env in the PARENT folder (not inside media-firewall)
+copy media-firewall\.env.example .env
+notepad .env   # fill in your values
+
+# Run the updater — it copies keys and starts the container
+Unblock-File -Path media-firewall\update.ps1
+.\media-firewall\update.ps1
 ```
 
 ### First run
@@ -98,13 +105,26 @@ Copy `.env.example` to `.env` and fill in your values:
 
 ## Updating
 
+**Linux:**
 ```bash
+cd media-firewall
 git pull
 docker compose down
 docker compose up -d --build
 ```
 
-On Windows, run `update.ps1` (right-click → Run with PowerShell) after pulling.
+**Windows:**
+
+The `.env` file lives in the **parent folder** (`DockerTest/.env`), not inside `media-firewall/`. This prevents it from being overwritten when you pull updates.
+
+```
+DockerTest/
+├── .env          ← your keys live here, never touched by updates
+└── media-firewall/
+    └── ...
+```
+
+After pulling, run `update.ps1` (right-click → Run with PowerShell). It copies the parent `.env` into the project folder and rebuilds the container automatically.
 
 ---
 
