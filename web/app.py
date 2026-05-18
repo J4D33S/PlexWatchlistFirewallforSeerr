@@ -20,7 +20,10 @@ from tmdb.posters import _DB_PATH as POSTER_DB
 app = FastAPI(title="Media Request Firewall", version="2.0.0")
 
 _HERE     = Path(__file__).parent
-_ENV_PATH = Path(__file__).parent.parent / ".env"
+# Use project .env if it exists, otherwise parent folder .env
+_PROJECT_ENV = Path(__file__).parent.parent / ".env"
+_PARENT_ENV  = Path(__file__).parent.parent.parent / ".env"
+_ENV_PATH    = _PROJECT_ENV if _PROJECT_ENV.exists() else _PARENT_ENV
 
 templates = Jinja2Templates(directory=str(_HERE / "templates"))
 app.mount("/static", StaticFiles(directory=str(_HERE / "static")), name="static")
