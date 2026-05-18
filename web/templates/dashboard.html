@@ -152,7 +152,7 @@
       <tbody id="decisions-body">
         {% for d in last_run.decisions %}
         <tr data-status="{{ d.status }}"
-            data-type="{{ d.item.type }}"
+            data-type="{{ 'anime' if d.item.is_anime else d.item.type }}"
             data-title="{{ d.item.title | lower }}"
             data-user="{{ d.item.added_by | lower }}"
             data-reqat="{{ d.item.seerr_req_at }}"
@@ -167,7 +167,7 @@
             {% endif %}
           </td>
           <td><strong>{{ d.item.title }}</strong></td>
-          <td style="color:var(--muted)">{{ d.item.type }}</td>
+          <td style="color:var(--muted)">{{ "anime" if d.item.is_anime else d.item.type }}</td>
           <td style="color:var(--muted);font-size:13px">{{ d.item.added_by }}</td>
           <td style="font-size:13px">
             {% if d.item.req_status == 'pending' %}
@@ -218,7 +218,7 @@
       {% for d in last_run.decisions %}
       <div class="grid-card"
            data-status="{{ d.status }}"
-           data-type="{{ d.item.type }}"
+           data-type="{{ 'anime' if d.item.is_anime else d.item.type }}"
            data-title="{{ d.item.title | lower }}"
            data-user="{{ d.item.added_by | lower }}"
            data-reqat="{{ d.item.seerr_req_at }}"
@@ -237,7 +237,7 @@
                 style="position:absolute;top:6px;left:6px;font-size:10px;">{{ d.status }}</span>
           <!-- Type badge -->
           <span style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;">
-            {{ d.item.type }}
+            {{ 'anime' if d.item.is_anime else d.item.type }}
           </span>
           <!-- Partial badge -->
           {% if d.item.media_status == 'partial' %}

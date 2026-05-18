@@ -50,12 +50,17 @@ class SeerrClient:
     def _get(self, path: str, params: dict | None = None) -> dict[str, Any]:
         try:
             resp = self._session.get(self._url(path), params=params, timeout=_TIMEOUT)
-            resp.raise_for_status()
+            if not resp.ok:
+                logger.error(
+                    "Seerr GET error: %s %s — %s",
+                    resp.status_code, resp.reason, self._url(path),
+                )
+                return {}
             return resp.json()
         except requests.exceptions.ConnectionError:
             logger.warning("Cannot reach Seerr at %s", self.base_url)
-        except requests.exceptions.HTTPError as exc:
-            logger.error("Seerr API error: %s", exc)
+        except Exception as exc:
+            logger.error("Seerr GET exception: %s", exc)
         return {}
 
     def _post(self, path: str, payload: dict, force: bool = False) -> dict[str, Any]:
@@ -65,13 +70,20 @@ class SeerrClient:
             return {"dry_run": True, "simulated": True, "payload": payload}
         try:
             resp = self._session.post(self._url(path), json=payload, timeout=_TIMEOUT)
-            resp.raise_for_status()
+            if not resp.ok:
+                logger.error(
+                    "Seerr POST error: %s %s\n  Payload: %s\n  Response: %s",
+                    resp.status_code, resp.reason,
+                    json.dumps(payload),
+                    resp.text[:500],
+                )
+                return {"error": f"{resp.status_code} {resp.reason}", "detail": resp.text[:500]}
             return resp.json()
         except requests.exceptions.ConnectionError:
             logger.error("Cannot reach Seerr at %s", self.base_url)
             return {"error": "connection_failed"}
-        except requests.exceptions.HTTPError as exc:
-            logger.error("Seerr POST error: %s", exc)
+        except Exception as exc:
+            logger.error("Seerr POST exception: %s", exc)
             return {"error": str(exc)}
 
     def _paginate(self, path: str, params: dict | None = None) -> list[dict]:

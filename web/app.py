@@ -125,8 +125,8 @@ def _trigger_run() -> dict:
             or poster_map.get((tid, "movie"))
             or ""
         )
-        if tid in anime_ids:
-            d["item"]["type"] = "anime"
+        # Tag as anime for display only — type stays as tv for Seerr API
+        d["item"]["is_anime"] = tid in anime_ids
 
     summary = {s: sum(1 for d in dicts if d["status"] == s) for s in ("ALLOW", "BLOCK", "SKIP")}
     summary["TOTAL"] = len(dicts)
