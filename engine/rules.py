@@ -87,9 +87,12 @@ def rule_duplicate_in_session(
     seen_in_session: set[int],
     **_,
 ) -> RuleResult:
-    """Skip duplicate items across user watchlists — only forward once."""
+    """
+    Skip if this exact item has already been ALLOW'd this session
+    from another user's watchlist — forward it once, not multiple times.
+    """
     if item.tmdb_id in seen_in_session:
-        return RuleResult(False, "already seen from another user's watchlist")
+        return RuleResult(False, "already being forwarded from another user's watchlist")
     return RuleResult(True, "no duplicate in current batch")
 
 

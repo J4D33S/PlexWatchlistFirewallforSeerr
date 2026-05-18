@@ -10,24 +10,6 @@ Plex Watchlists ──► Firewall Engine ──► Seerr API ──► Radarr /
 
 ---
 
-## Why use this instead of Seerr's built-in watchlist sync?
-
-| Feature | Seerr Native | Firewall |
-|---------|-------------|----------|
-| Block specific titles | ❌ | ✅ By TMDB ID, TVDB ID, or keyword |
-| Block by keyword (e.g. entire franchise) | ❌ | ✅ |
-| Prevent duplicate requests | ❌ | ✅ |
-| Skip shows already in your Plex library | ❌ | ✅ |
-| Skip partial/continuing shows | ❌ | ✅ |
-| Dry-run preview before sending | ❌ | ✅ |
-| Manual forward individual items | ❌ | ✅ |
-| Sync Seerr's own blocklist | ❌ | ✅ Auto-synced |
-| Per-user watchlist visibility | ❌ | ✅ See who wants what |
-| Poster images (TMDB + TVDB) | ❌ | ✅ |
-| Anime detection | ❌ | ✅ |
-
----
-
 ## Quick Start
 
 ### Prerequisites
@@ -84,7 +66,7 @@ On each run the firewall:
 | Already requested in Seerr | SKIP |
 | Already in your Plex library | SKIP |
 | Available/partial in Seerr | SKIP |
-| Duplicate across user watchlists | SKIP |
+| Already being forwarded from another user this run | SKIP |
 | Everything else | ALLOW |
 
 5. **Forwards ALLOW items** to Seerr as requests (or logs them in dry-run)
