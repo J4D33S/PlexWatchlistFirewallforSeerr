@@ -116,6 +116,18 @@ def _trigger_run() -> dict:
     poster_map = get_poster_urls_bulk([d["item"] for d in dicts])
     anime_ids  = get_anime_tmdb_ids()
 
+    # Load TVDB IDs for TV shows from cache
+    import sqlite3
+    tvdb_id_map: dict[int, int] = {}
+    try:
+        tconn = sqlite3.connect(str(POSTER_DB).replace("poster_cache.db", "tvdb_cache.db"))
+        tconn.row_factory = sqlite3.Row
+        for row in tconn.execute("SELECT tmdb_id, tvdb_id FROM tvdb_poster_cache WHERE tvdb_id > 0").fetchall():
+            tvdb_id_map[row["tmdb_id"]] = row["tvdb_id"]
+        tconn.close()
+    except Exception:
+        pass
+
     for d in dicts:
         tid = d["item"]["tmdb_id"]
         typ = d["item"]["type"]
@@ -125,8 +137,10 @@ def _trigger_run() -> dict:
             or poster_map.get((tid, "movie"))
             or ""
         )
-        # Tag as anime for display only — type stays as tv for Seerr API
+        # Tag as anime for filter only — type stays as tv for Seerr API
         d["item"]["is_anime"] = tid in anime_ids
+        # Attach TVDB ID for TV show links
+        d["item"]["tvdb_id"] = tvdb_id_map.get(tid, 0) if typ == "tv" else 0
 
     summary = {s: sum(1 for d in dicts if d["status"] == s) for s in ("ALLOW", "BLOCK", "SKIP")}
     summary["TOTAL"] = len(dicts)
