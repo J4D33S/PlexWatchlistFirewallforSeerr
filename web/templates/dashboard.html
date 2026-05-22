@@ -160,11 +160,18 @@
             data-mediastatus="{{ d.item.media_status }}">
           <td><span class="badge badge-{{ d.status | lower }}">{{ d.status }}</span></td>
           <td style="width:40px;padding:6px;">
+            {% if d.item.type == 'movie' %}
+              {% set item_url = 'https://www.themoviedb.org/movie/' + d.item.tmdb_id|string %}
+            {% else %}
+              {% set item_url = 'https://www.themoviedb.org/tv/' + d.item.tmdb_id|string %}
+            {% endif %}
+            <a href="{{ item_url }}" target="_blank">
             {% if d.item.poster_url %}
               <img src="{{ d.item.poster_url }}" alt="" style="width:36px;height:54px;object-fit:cover;border-radius:4px;display:block;">
             {% else %}
               <div style="width:36px;height:54px;background:var(--surface2);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:16px;">🎬</div>
             {% endif %}
+            </a>
           </td>
           <td><strong>{{ d.item.title }}</strong></td>
           <td style="color:var(--muted)">{{ "anime" if d.item.is_anime else d.item.type }}</td>
@@ -226,12 +233,23 @@
            data-mediastatus="{{ d.item.media_status }}">
         <!-- Poster -->
         <div style="position:relative;">
+          {% set tmdb_path = 'tv' if d.item.type == 'tv' else 'movie' %}
+          {% set tmdb_url = 'https://www.themoviedb.org/' + tmdb_path + '/' + d.item.tmdb_id|string %}
+          <a href="{{ tmdb_url }}" target="_blank" style="display:block;">
+          {% if d.item.type == 'movie' %}
+            {% set item_url = 'https://www.themoviedb.org/movie/' + d.item.tmdb_id|string %}
+          {% else %}
+            {% set item_url = 'https://www.themoviedb.org/tv/' + d.item.tmdb_id|string %}
+          {% endif %}
+          <a href="{{ item_url }}" target="_blank" style="display:block;">
           {% if d.item.poster_url %}
             <img src="{{ d.item.poster_url }}" alt="{{ d.item.title }}"
                  style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:8px 8px 0 0;display:block;">
           {% else %}
             <div style="width:100%;aspect-ratio:2/3;background:var(--surface2);border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-size:40px;">🎬</div>
           {% endif %}
+          </a>
+          </a>
           <!-- Status badge overlay -->
           <span class="badge badge-{{ d.status | lower }}"
                 style="position:absolute;top:6px;left:6px;font-size:10px;">{{ d.status }}</span>
